@@ -1,4 +1,4 @@
-# updates to code
+# updates to the main code
 
 asdabefabgeonafoubergjnergn 👍👍👍👀👀👍
 
