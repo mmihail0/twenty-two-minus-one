@@ -9,9 +9,6 @@ ABILITY_POOL = [
     "draw_specific", "perfect_draw"
 ]
 
-
-# ── Helpers ────────────────────────────────────────────────────────────────
-
 def _user_hand(game, user):
     return game.player_hand if user == "player" else game.enemy_hand
 
@@ -48,9 +45,6 @@ def _find_and_remove(deck, rank):
 
 def _make_card(rank):
     return pydealer.Card(rank, "Numbered")
-
-
-# ── Ability implementations ────────────────────────────────────────────────
 
 def apply_max24(game, user):
     game.current_max = 24
@@ -133,9 +127,6 @@ def apply_perfect_draw(game, user):
         return f"{user.upper()} used PERFECT DRAW — drew {card.value} to reach {game.current_max}"
     return f"{user.upper()} used PERFECT DRAW — already at or over max"
 
-
-# ── Dispatch ───────────────────────────────────────────────────────────────
-
 ABILITY_FUNCS = {
     "max24":         apply_max24,
     "max27":         apply_max27,
@@ -157,9 +148,6 @@ def use_ability(game, ability_name, user):
     if func:
         return func(game, user)
     return f"Unknown ability: {ability_name}"
-
-
-# ── Enemy AI ───────────────────────────────────────────────────────────────
 
 def enemy_should_use_ability(game):
     inv = game.enemy_inventory
