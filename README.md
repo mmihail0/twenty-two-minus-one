@@ -2,7 +2,7 @@
 
 asdabefabgeonafoubergjnergn 👍👍👍👀👀👍
 
-if you want to run it then load all the files into some ide and run pygamevl.py/
+if you want to run it then load all the files into some ide and run pygamevl.py
 
 # rules
 1. classic blackjack rules; go up to 21 or go bust by going over 21 <br>
