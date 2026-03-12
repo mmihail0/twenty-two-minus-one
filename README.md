@@ -1,4 +1,4 @@
-# round resolving logic
+# round resolving logic (do NOT push to main)
 
 **these files are just variations of the current pygamevl.py**
 *option 2 is the current one in use as of prototype_2*
