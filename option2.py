@@ -85,7 +85,7 @@ def draw_state_label(surface, game, player_stood, can_unstand):
         text, colour = "YOUR TURN  [SPACE] hit   [SHIFT] stand   [TAB] inventory", WHITE
     elif game.state == "enemy_turn":
         if can_unstand:
-            text, colour = "ENEMY TURN  [SHIFT] un-stand (skips enemy next action)   [TAB] inventory", ORANGE
+            text, colour = "ENEMY TURN  [SHIFT] un-stand   [TAB] inventory", ORANGE
         else:
             text, colour = "ENEMY TURN...  [TAB] inventory", GREY
     elif game.state == "round_over":
@@ -150,7 +150,7 @@ def start_round(game):
 
 def run():
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("21 — RE7 Blackjack (Option 2: Un-stand)")
+    pygame.display.set_caption("21 — RE7 Blackjack")
     clock  = pygame.time.Clock()
 
     game = GameState()
@@ -159,13 +159,11 @@ def run():
 
     enemy_timer        = 0
     enemy_used_ability = False
-    player_stood       = False   # player has pressed stand at least once
-    enemy_skip_next    = False   # un-stand penalty: skip enemy's next action
+    player_stood       = False
 
     while True:
         now = pygame.time.get_ticks()
 
-        # player can un-stand as long as enemy hasn't finished yet
         can_unstand = (game.state == "enemy_turn" and player_stood)
 
         for event in pygame.event.get():
@@ -177,7 +175,6 @@ def run():
 
                 if game.state == "inventory":
                     if event.key == pygame.K_TAB:
-                        # return to whatever state opened inventory
                         game.state = "player_turn" if not player_stood else "enemy_turn"
                     elif event.key == pygame.K_UP:
                         game.inventory_index = max(0, game.inventory_index - 1)
@@ -200,19 +197,16 @@ def run():
                         player_hit(game)
                     elif event.key in (pygame.K_LSHIFT, pygame.K_RSHIFT):
                         player_stand(game)
-                        player_stood    = True
-                        enemy_timer     = now + ENEMY_STEP_DELAY
+                        player_stood       = True
+                        enemy_timer        = now + ENEMY_STEP_DELAY
                         enemy_used_ability = False
                     elif event.key == pygame.K_TAB:
                         game.state = "inventory"
 
                 elif game.state == "enemy_turn":
                     if event.key in (pygame.K_LSHIFT, pygame.K_RSHIFT) and can_unstand:
-                        # un-stand: go back to player turn, skip enemy's next action as penalty
-                        game.state      = "player_turn"
-                        player_stood    = False
-                        enemy_skip_next = True
-                        print("Player un-stood — enemy next action skipped")
+                        game.state   = "player_turn"
+                        player_stood = False
                     elif event.key == pygame.K_TAB:
                         game.state = "inventory"
 
@@ -222,7 +216,6 @@ def run():
                         start_round(game)
                         player_stood       = False
                         enemy_used_ability = False
-                        enemy_skip_next    = False
 
                 elif game.state == "game_over":
                     if event.key == pygame.K_r:
@@ -231,22 +224,17 @@ def run():
                         deal_opening_hands(game)
                         player_stood       = False
                         enemy_used_ability = False
-                        enemy_skip_next    = False
 
         # enemy acts one step per second
         if game.state == "enemy_turn" and now >= enemy_timer:
-            if enemy_skip_next:
-                # burn the skipped action, reset timer
-                enemy_skip_next = False
-                enemy_timer = now + ENEMY_STEP_DELAY
-            elif not enemy_used_ability:
+            if not enemy_used_ability:
                 result = run_enemy_abilities(game)
                 if result:
                     print(result)
                 enemy_used_ability = True
                 enemy_timer = now + ENEMY_STEP_DELAY
             else:
-                if enemy_should_stand(game) or game.enemy_total > game.current_max:
+                if game.enemy_total > game.current_max or enemy_should_stand(game):
                     resolve_round(game)
                 else:
                     draw_card(game, "enemy")
