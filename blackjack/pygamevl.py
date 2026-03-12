@@ -2,8 +2,9 @@ import pygame
 import sys
 from game_logic import (
     GameState, deal_opening_hands, player_hit, player_stand,
-    run_enemy_turn, resolve_round, distribute_abilities
+    draw_card, resolve_round, distribute_abilities
 )
+from trump import run_enemy_abilities
 
 WIDTH, HEIGHT = 960, 540
 FPS           = 30
@@ -14,6 +15,7 @@ WHITE      = (255, 255, 255)
 DARK_BG    = (15,  15,  20)
 PANEL_BG   = (25,  25,  35)
 CARD_COL   = (220, 210, 190)
+CARD_HIDDEN = (60,  60,  80)   # face-down card colour
 CARD_OUT   = (60,  60,  80)
 RED        = (200, 40,  40)
 GREEN      = (60,  180, 80)
@@ -28,6 +30,8 @@ PLAYER_HAND_Y  = HEIGHT - 150
 ENEMY_HAND_Y   = 55
 HAND_START_X   = 36
 
+ENEMY_STEP_DELAY = 1000   # ms between each enemy action
+
 pygame.init()
 FONT_SM  = pygame.font.SysFont("couriernew", 16)
 FONT_MD  = pygame.font.SysFont("couriernew", 20, bold=True)
@@ -35,8 +39,16 @@ FONT_LG  = pygame.font.SysFont("couriernew", 28, bold=True)
 FONT_XL  = pygame.font.SysFont("couriernew", 46, bold=True)
 
 
-def draw_card_rect(surface, value, x, y, highlight=False):
-    # most recently drawn card gets highlighted yellow
+def draw_card_rect(surface, value, x, y, highlight=False, hidden=False):
+    # hidden = face-down card, shown as a dark rectangle with no number
+    if hidden:
+        pygame.draw.rect(surface, CARD_HIDDEN, (x, y, CARD_W, CARD_H), border_radius=3)
+        pygame.draw.rect(surface, GREY, (x, y, CARD_W, CARD_H), 1, border_radius=3)
+        # draw a small ? to indicate unknown
+        txt = FONT_MD.render("?", True, GREY)
+        surface.blit(txt, (x + CARD_W // 2 - txt.get_width() // 2,
+                            y + CARD_H // 2 - txt.get_height() // 2))
+        return
     colour = YELLOW if highlight else CARD_COL
     pygame.draw.rect(surface, colour, (x, y, CARD_W, CARD_H), border_radius=3)
     pygame.draw.rect(surface, CARD_OUT, (x, y, CARD_W, CARD_H), 1, border_radius=3)
@@ -45,14 +57,25 @@ def draw_card_rect(surface, value, x, y, highlight=False):
                         y + CARD_H // 2 - txt.get_height() // 2))
 
 
-def draw_hand(surface, hand, y, label, total, is_enemy=False):
+def draw_hand(surface, hand, y, label, total, is_enemy=False, reveal=False):
     col = RED if is_enemy else GREEN
-    lbl = FONT_SM.render(f"{label}  total: {total}", True, col)
+
+    if is_enemy and not reveal:
+        # show "? + visible_sum / max" format while enemy turn is ongoing
+        visible_sum = sum(int(c.value) for c in hand[1:]) if len(hand) > 1 else 0
+        label_txt = f"{label}  total: ? + {visible_sum}"
+    else:
+        label_txt = f"{label}  total: {total}"
+
+    lbl = FONT_SM.render(label_txt, True, col)
     surface.blit(lbl, (HAND_START_X, y - 14))
+
     for i, card in enumerate(hand):
         x = HAND_START_X + i * (CARD_W + CARD_GAP)
         highlight = (i == len(hand) - 1)
-        draw_card_rect(surface, card.value, x, y, highlight)
+        # first enemy card is hidden until round is over
+        hidden = (is_enemy and i == 0 and not reveal)
+        draw_card_rect(surface, card.value, x, y, highlight, hidden=hidden)
 
 
 def draw_hud(surface, game):
@@ -148,7 +171,13 @@ def run():
     game.inventory_index = 0
     deal_opening_hands(game)
 
+    # enemy turn stepping — track when the next enemy action should fire
+    enemy_timer     = 0
+    enemy_used_ability = False  # enemy gets one ability use per turn
+
     while True:
+        now = pygame.time.get_ticks()
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -179,8 +208,10 @@ def run():
                     if event.key == pygame.K_SPACE:
                         player_hit(game)
                     elif event.key in (pygame.K_LSHIFT, pygame.K_RSHIFT):
+                        # player stands — hand off to enemy, reset step timer
                         player_stand(game)
-                        run_enemy_turn(game)
+                        enemy_timer = now + ENEMY_STEP_DELAY
+                        enemy_used_ability = False
                     elif event.key == pygame.K_TAB:
                         game.state = "inventory"
 
@@ -188,16 +219,39 @@ def run():
                     if event.key == pygame.K_RETURN:
                         distribute_abilities(game)
                         start_round(game)
+                        enemy_used_ability = False
 
                 elif game.state == "game_over":
                     if event.key == pygame.K_r:
                         game = GameState()
                         game.inventory_index = 0
                         deal_opening_hands(game)
+                        enemy_used_ability = False
+
+        # enemy takes one action per second while it's its turn
+        if game.state == "enemy_turn" and now >= enemy_timer:
+            # enemy gets one ability use before hitting/standing
+            if not enemy_used_ability:
+                result = run_enemy_abilities(game)
+                if result:
+                    print(result)
+                enemy_used_ability = True
+                enemy_timer = now + ENEMY_STEP_DELAY
+            else:
+                from game_logic import enemy_should_stand
+                if enemy_should_stand(game) or game.enemy_total > game.current_max:
+                    # enemy is done — resolve the round
+                    resolve_round(game)
+                else:
+                    draw_card(game, "enemy")
+                    enemy_timer = now + ENEMY_STEP_DELAY
+
+        # reveal = round is over so show enemy's hidden card
+        reveal = game.state in ("round_over", "game_over")
 
         screen.fill(DARK_BG)
-        draw_hand(screen, game.enemy_hand,  ENEMY_HAND_Y,  "ENEMY",  game.enemy_total,  is_enemy=True)
-        draw_hand(screen, game.player_hand, PLAYER_HAND_Y, "PLAYER", game.player_total, is_enemy=False)
+        draw_hand(screen, game.enemy_hand,  ENEMY_HAND_Y,  "ENEMY",  game.enemy_total,  is_enemy=True,  reveal=reveal)
+        draw_hand(screen, game.player_hand, PLAYER_HAND_Y, "PLAYER", game.player_total, is_enemy=False, reveal=True)
         draw_hud(screen, game)
         draw_state_label(screen, game)
         draw_round_over_banner(screen, game)
