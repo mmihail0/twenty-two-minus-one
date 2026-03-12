@@ -10,7 +10,7 @@ ABILITY_POOL = [
 ]
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────
+# helper functions used by multiple abilities
 
 def _user_hand(game, user):
     return game.player_hand if user == "player" else game.enemy_hand
@@ -28,6 +28,7 @@ def _opponent(user):
     return "enemy" if user == "player" else "player"
 
 def _draw_card_for(game, target):
+    # deals one card from the deck straight into a hand, updates total
     if len(game.deck) == 0:
         replenish_deck(game.deck)
     card = game.deck.deal(1).cards[0]
@@ -40,6 +41,7 @@ def _draw_card_for(game, target):
     return card
 
 def _find_and_remove(deck, rank):
+    # searches the deck for a specific rank and pulls it out if found
     for card in list(deck.cards):
         if card.value == rank:
             deck.cards.remove(card)
@@ -47,10 +49,11 @@ def _find_and_remove(deck, rank):
     return None
 
 def _make_card(rank):
+    # creates a card directly when it can't be found in the deck
     return pydealer.Card(rank, "Numbered")
 
 
-# ── Ability implementations ────────────────────────────────────────────────
+# ability implementations - each takes (game, user) and returns a result string
 
 def apply_max24(game, user):
     game.current_max = 24
@@ -65,6 +68,7 @@ def apply_max17(game, user):
     return f"{user.upper()} set the bust limit to 17"
 
 def apply_reset_deck(game, user):
+    # wipes the user's hand, rebuilds the deck, redeals 2 cards
     print(f"BEFORE reset: hand={[c.value for c in _user_hand(game, user)]}, total={_user_total(game, user)}")
     if user == "player":
         game.player_hand  = []
@@ -85,6 +89,7 @@ def apply_reset_deck(game, user):
     return f"{user.upper()} reset the deck — hand redrawn"
 
 def apply_swap_last(game, user):
+    # swaps the most recently drawn card between the players and recalculates totals
     if not game.player_hand or not game.enemy_hand:
         return "SWAP LAST failed — a hand is empty"
     p_card = game.player_hand[-1]
@@ -96,17 +101,20 @@ def apply_swap_last(game, user):
     return f"{user.upper()} swapped last cards — player gave {p_card.value}, got {e_card.value}"
 
 def apply_friendship(game, user):
+    # gives 2 random abilities to both players
     gains = [random.choice(ABILITY_POOL) for _ in range(2)]
     game.player_inventory.extend(gains)
     game.enemy_inventory.extend(gains)
     return f"{user.upper()} used FRIENDSHIP — both players gained 2 abilities"
 
 def apply_force_draw(game, user):
+    # forces the opponent to take a card immediately
     opp  = _opponent(user)
     card = _draw_card_for(game, opp)
     return f"{user.upper()} forced {opp.upper()} to draw {card.value}"
 
 def apply_draw_specific(game, user):
+    # pulls a 4, 5, or 6 from the deck — generates one if none are left
     for rank in ["4", "5", "6"]:
         card = _find_and_remove(game.deck, rank)
         if card:
@@ -119,6 +127,8 @@ def apply_draw_specific(game, user):
     return f"{user.upper()} drew specific card: 4 (generated)"
 
 def apply_perfect_draw(game, user):
+    # calculates exactly what card is needed to hit current_max and draws it
+    # if that card isn't in the deck, it gets generated directly
     total  = _user_total(game, user)
     needed = game.current_max - total
     print(f"PERFECT DRAW: total={total}, max={game.current_max}, needed={needed}")
@@ -134,7 +144,7 @@ def apply_perfect_draw(game, user):
     return f"{user.upper()} used PERFECT DRAW — already at or over max"
 
 
-# ── Dispatch ───────────────────────────────────────────────────────────────
+# maps ability names to their functions so use_ability can look them up
 
 ABILITY_FUNCS = {
     "max24":         apply_max24,
@@ -149,6 +159,7 @@ ABILITY_FUNCS = {
 }
 
 def use_ability(game, ability_name, user):
+    # removes the ability from inventory then runs it
     inventory = game.player_inventory if user == "player" else game.enemy_inventory
     if ability_name not in inventory:
         return f"{ability_name} not in {user} inventory"
@@ -159,7 +170,7 @@ def use_ability(game, ability_name, user):
     return f"Unknown ability: {ability_name}"
 
 
-# ── Enemy AI ───────────────────────────────────────────────────────────────
+# enemy ai - decides whether and what to play before hitting or standing
 
 def enemy_should_use_ability(game):
     inv = game.enemy_inventory
@@ -168,20 +179,29 @@ def enemy_should_use_ability(game):
     e = game.enemy_total
     p = game.player_total
     m = game.current_max
+
     if e >= m - 2:
+        # close to busting - try to raise the limit or offload a bad card
         for ability in ["max27", "max24", "swap_last"]:
             if ability in inv:
                 return ability
+
     if p >= m - 3 and e < p:
+        # player is about to win - try to punish them
         for ability in ["force_draw", "max17", "swap_last"]:
             if ability in inv:
                 return ability
+
     if e < m * 0.6:
+        # total is low, try to boost it precisely
         for ability in ["perfect_draw", "draw_specific"]:
             if ability in inv:
                 return ability
+
+    # small random chance to use something anyway
     if random.random() < 0.15:
         return random.choice(inv)
+
     return None
 
 def run_enemy_abilities(game):
