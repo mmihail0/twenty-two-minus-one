@@ -1,8 +1,6 @@
-print("LOADING game_logic.py")
 import random
 from cards import build_deck, card_value, replenish_deck
 
-# ── Game state ─────────────────────────────────────────────────────────────
 
 class GameState:
     def __init__(self):
@@ -11,16 +9,18 @@ class GameState:
         self.enemy_hand          = []
         self.player_total        = 0
         self.enemy_total         = 0
-        self.current_max         = 21
-        self.state               = "player_turn"  # player_turn | enemy_turn | round_over | game_over
-        self.round_result        = None           # "player_win" | "enemy_win" | "draw"
-        self.consecutive_losses  = 0
+        self.current_max         = 21        # bust limit, can be changed by abilities
+        self.state               = "player_turn"  # player_turn | enemy_turn | inventory | round_over | game_over
+        self.round_result        = None      # set at end of round: "player_win", "enemy_win", or "draw"
+        self.consecutive_losses  = 0         # lose twice in a row = game over
+        self.consecutive_wins    = 0         # tracked for display
         self.round_number        = 1
         self.player_inventory    = []
         self.enemy_inventory     = []
-        self.inventory_index     = 0
+        self.inventory_index     = 0         # which ability the cursor is on
 
     def reset_round(self):
+        # clear hands and reset per-round state, but keep inventories and loss streak
         self.player_hand  = []
         self.enemy_hand   = []
         self.player_total = 0
@@ -33,8 +33,6 @@ class GameState:
         if len(self.deck) < 4:
             replenish_deck(self.deck)
 
-
-# ── Drawing ────────────────────────────────────────────────────────────────
 
 def draw_card(game, target):
     if len(game.deck) == 0:
@@ -50,24 +48,24 @@ def draw_card(game, target):
 
 
 def deal_opening_hands(game):
+    # both players start with 2 cards
     for _ in range(2):
         draw_card(game, "player")
         draw_card(game, "enemy")
 
-
-# ── Player actions ─────────────────────────────────────────────────────────
 
 def player_hit(game):
     return draw_card(game, "player")
 
 
 def player_stand(game):
+    # hand off to the enemy
     game.state = "enemy_turn"
 
 
-# ── Enemy AI ───────────────────────────────────────────────────────────────
-
 def enemy_should_stand(game):
+    # probabilistic stand decision based on how close the enemy is to the bust limit
+    # below 50% of max -> always hit, at/above max -> always stand, linear in between
     ratio = game.enemy_total / game.current_max
     if ratio >= 1.0:
         return True
@@ -79,7 +77,7 @@ def enemy_should_stand(game):
 
 def run_enemy_turn(game):
     import trump
-    trump.run_enemy_abilities(game)
+    trump.run_enemy_abilities(game)  # enemy may use an ability before deciding to hit or stand
     while True:
         if enemy_should_stand(game):
             break
@@ -89,20 +87,19 @@ def run_enemy_turn(game):
     resolve_round(game)
 
 
-# ── Round resolution ───────────────────────────────────────────────────────
-
 def resolve_round(game):
-    p = game.player_total
-    e = game.enemy_total
-    m = game.current_max
+    player = game.player_total
+    enemy = game.enemy_total
+    max = game.current_max
 
-    player_busted = p > m
-    enemy_busted  = e > m
+    player_busted = player > max
+    enemy_busted  = enemy > max
 
+    # if both bust, higher total loses
     if player_busted and enemy_busted:
-        if p == e:
+        if player == enemy:
             result = "draw"
-        elif p > e:
+        elif player > enemy:
             result = "enemy_win"
         else:
             result = "player_win"
@@ -111,9 +108,9 @@ def resolve_round(game):
     elif enemy_busted:
         result = "player_win"
     else:
-        if p > e:
+        if player > enemy:
             result = "player_win"
-        elif e > p:
+        elif enemy > player:
             result = "enemy_win"
         else:
             result = "draw"
@@ -124,15 +121,19 @@ def resolve_round(game):
 
 
 def _update_match_state(game, result):
+    # track consecutive losses, two in a row ends the game
     if result == "enemy_win":
         game.consecutive_losses += 1
+        game.consecutive_wins    = 0
+    elif result == "player_win":
+        game.consecutive_losses  = 0
+        game.consecutive_wins   += 1
     else:
         game.consecutive_losses = 0
+        game.consecutive_wins   = 0
     if game.consecutive_losses >= 2:
         game.state = "game_over"
 
-
-# ── Ability distribution ───────────────────────────────────────────────────
 
 ABILITY_POOL = [
     "max24", "max27", "max17",
@@ -142,6 +143,7 @@ ABILITY_POOL = [
 ]
 
 def distribute_abilities(game):
+    # draws give exactly 1 ability each, normal rounds give 1 or 2
     count = 1 if game.round_result == "draw" else random.randint(1, 2)
     player_gains = [random.choice(ABILITY_POOL) for _ in range(count)]
     enemy_gains  = [random.choice(ABILITY_POOL) for _ in range(count)]
