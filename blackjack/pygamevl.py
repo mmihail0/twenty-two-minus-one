@@ -1,8 +1,9 @@
+#pygamevs - pygame visuals & corresponding logic
 import pygame
 import sys
 from game_logic import (
     GameState, deal_opening_hands, player_hit, player_stand,
-    draw_card, resolve_round, distribute_abilities
+    draw_card, resolve_round, distribute_abilities, enemy_should_stand
 )
 from trump import run_enemy_abilities
 
@@ -10,41 +11,39 @@ WIDTH, HEIGHT = 960, 540
 FPS           = 30
 
 # colours
-BLACK      = (0,   0,   0)
-WHITE      = (255, 255, 255)
-DARK_BG    = (15,  15,  20)
-PANEL_BG   = (25,  25,  35)
-CARD_COL   = (220, 210, 190)
-CARD_HIDDEN = (60,  60,  80)   # face-down card colour
-CARD_OUT   = (60,  60,  80)
-RED        = (200, 40,  40)
-GREEN      = (60,  180, 80)
-YELLOW     = (220, 190, 50)
-GREY       = (100, 100, 120)
-DIM        = (60,  60,  75)
+BLACK       = (0,   0,   0)
+WHITE       = (255, 255, 255)
+DARK_BG     = (15,  15,  20)
+PANEL_BG    = (25,  25,  35)
+CARD_COL    = (220, 210, 190)
+CARD_HIDDEN = (60,  60,  80)
+CARD_OUT    = (60,  60,  80)
+RED         = (200, 40,  40)
+GREEN       = (60,  180, 80)
+YELLOW      = (220, 190, 50)
+GREY        = (100, 100, 120)
+DIM         = (60,  60,  75)
+ORANGE      = (220, 130, 40)
 
-# card and layout sizes
 CARD_W, CARD_H = 56, 78
 CARD_GAP       = 14
 PLAYER_HAND_Y  = HEIGHT - 150
 ENEMY_HAND_Y   = 55
 HAND_START_X   = 36
 
-ENEMY_STEP_DELAY = 1000   # ms between each enemy action
+ENEMY_STEP_DELAY = 1000
 
 pygame.init()
-FONT_SM  = pygame.font.SysFont("couriernew", 16)
-FONT_MD  = pygame.font.SysFont("couriernew", 20, bold=True)
-FONT_LG  = pygame.font.SysFont("couriernew", 28, bold=True)
-FONT_XL  = pygame.font.SysFont("couriernew", 46, bold=True)
+FONT_SM = pygame.font.SysFont("couriernew", 16)
+FONT_MD = pygame.font.SysFont("couriernew", 20, bold=True)
+FONT_LG = pygame.font.SysFont("couriernew", 28, bold=True)
+FONT_XL = pygame.font.SysFont("couriernew", 46, bold=True)
 
 
 def draw_card_rect(surface, value, x, y, highlight=False, hidden=False):
-    # hidden = face-down card, shown as a dark rectangle with no number
     if hidden:
         pygame.draw.rect(surface, CARD_HIDDEN, (x, y, CARD_W, CARD_H), border_radius=3)
         pygame.draw.rect(surface, GREY, (x, y, CARD_W, CARD_H), 1, border_radius=3)
-        # draw a small ? to indicate unknown
         txt = FONT_MD.render("?", True, GREY)
         surface.blit(txt, (x + CARD_W // 2 - txt.get_width() // 2,
                             y + CARD_H // 2 - txt.get_height() // 2))
@@ -59,43 +58,39 @@ def draw_card_rect(surface, value, x, y, highlight=False, hidden=False):
 
 def draw_hand(surface, hand, y, label, total, is_enemy=False, reveal=False):
     col = RED if is_enemy else GREEN
-
     if is_enemy and not reveal:
-        # show "? + visible_sum / max" format while enemy turn is ongoing
         visible_sum = sum(int(c.value) for c in hand[1:]) if len(hand) > 1 else 0
         label_txt = f"{label}  total: ? + {visible_sum}"
     else:
         label_txt = f"{label}  total: {total}"
-
     lbl = FONT_SM.render(label_txt, True, col)
     surface.blit(lbl, (HAND_START_X, y - 14))
-
     for i, card in enumerate(hand):
         x = HAND_START_X + i * (CARD_W + CARD_GAP)
         highlight = (i == len(hand) - 1)
-        # first enemy card is hidden until round is over
         hidden = (is_enemy and i == 0 and not reveal)
         draw_card_rect(surface, card.value, x, y, highlight, hidden=hidden)
 
 
 def draw_hud(surface, game):
-    # top-right corner: bust limit, round number, loss streak
     max_txt    = FONT_SM.render(f"MAX: {game.current_max}", True, YELLOW)
     round_txt  = FONT_SM.render(f"ROUND: {game.round_number}", True, WHITE)
-    losses_txt = FONT_SM.render(f"LOSSES IN A ROW: {game.consecutive_losses}/2", True, RED)
-    surface.blit(max_txt,    (WIDTH - 100, 10))
-    surface.blit(round_txt,  (WIDTH - 100, 24))
-    surface.blit(losses_txt, (WIDTH - 150, 38))
+    wins_txt   = FONT_SM.render(f"WINS IN A ROW: {game.consecutive_wins}", True, GREEN)
+    surface.blit(max_txt,   (WIDTH - 160, 10))
+    surface.blit(round_txt, (WIDTH - 160, 28))
+    surface.blit(wins_txt,  (WIDTH - 160, 46))
 
 
-def draw_state_label(surface, game):
-    # bottom centre hint text changes depending on what state we're in
+def draw_state_label(surface, game, player_stood, can_unstand):
     if game.state == "player_turn":
         text, colour = "YOUR TURN  [SPACE] hit   [SHIFT] stand   [TAB] inventory", WHITE
     elif game.state == "enemy_turn":
-        text, colour = "ENEMY TURN...", GREY
+        if can_unstand:
+            text, colour = "ENEMY TURN  [SHIFT] un-stand   [TAB] inventory", ORANGE
+        else:
+            text, colour = "ENEMY TURN...  [TAB] inventory", GREY
     elif game.state == "round_over":
-        result_str   = game.round_result.replace("_", " ").upper() if game.round_result else ""
+        result_str = game.round_result.replace("_", " ").upper() if game.round_result else ""
         text, colour = f"ROUND OVER  {result_str}   [ENTER] continue", YELLOW
     elif game.state == "game_over":
         text, colour = "GAME OVER   [R] restart", RED
@@ -106,37 +101,30 @@ def draw_state_label(surface, game):
 
 
 def draw_inventory(surface, game):
-    # semi-transparent panel slides in from the right when TAB is pressed
     panel_w = 160
     panel   = pygame.Surface((panel_w, HEIGHT), pygame.SRCALPHA)
     panel.fill((10, 10, 20, 210))
     surface.blit(panel, (WIDTH - panel_w, 0))
-
     title = FONT_MD.render("INVENTORY", True, YELLOW)
     surface.blit(title, (WIDTH - panel_w + 8, 10))
     pygame.draw.line(surface, YELLOW, (WIDTH - panel_w, 26), (WIDTH, 26), 1)
-
     if not game.player_inventory:
         none_txt = FONT_SM.render("(empty)", True, GREY)
         surface.blit(none_txt, (WIDTH - panel_w + 8, 40))
         return
-
     for i, ability in enumerate(game.player_inventory):
         y     = 38 + i * 18
         col   = WHITE if i == game.inventory_index else DIM
         arrow = "> " if i == game.inventory_index else "  "
         txt   = FONT_SM.render(f"{arrow}{ability}", True, col)
         surface.blit(txt, (WIDTH - panel_w + 6, y))
-
     hint = FONT_SM.render("[ENTER] use  [TAB] close", True, GREY)
     surface.blit(hint, (WIDTH - panel_w + 4, HEIGHT - 20))
 
 
 def draw_round_over_banner(surface, game):
-    # big centred win/lose/draw message, only shown at end of round
     if game.state not in ("round_over", "game_over"):
         return
-
     if game.state == "game_over":
         msg, col = "GAME OVER", RED
     elif game.round_result == "player_win":
@@ -145,7 +133,6 @@ def draw_round_over_banner(surface, game):
         msg, col = "YOU LOSE", RED
     else:
         msg, col = "DRAW", YELLOW
-
     txt = FONT_XL.render(msg, True, col)
     x   = WIDTH  // 2 - txt.get_width()  // 2
     y   = HEIGHT // 2 - txt.get_height() // 2
@@ -164,19 +151,21 @@ def start_round(game):
 
 def run():
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("21 — RE7 Blackjack")
+    pygame.display.set_caption("twenty two minus one")
     clock  = pygame.time.Clock()
 
     game = GameState()
     game.inventory_index = 0
     deal_opening_hands(game)
 
-    # enemy turn stepping — track when the next enemy action should fire
-    enemy_timer     = 0
-    enemy_used_ability = False  # enemy gets one ability use per turn
+    enemy_timer        = 0
+    enemy_used_ability = False
+    player_stood       = False
 
     while True:
         now = pygame.time.get_ticks()
+
+        can_unstand = (game.state == "enemy_turn" and player_stood)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -187,7 +176,7 @@ def run():
 
                 if game.state == "inventory":
                     if event.key == pygame.K_TAB:
-                        game.state = "player_turn"
+                        game.state = "player_turn" if not player_stood else "enemy_turn"
                     elif event.key == pygame.K_UP:
                         game.inventory_index = max(0, game.inventory_index - 1)
                     elif event.key == pygame.K_DOWN:
@@ -202,16 +191,23 @@ def run():
                             result = use_ability(game, ability, "player")
                             print(result)
                             game.inventory_index = max(0, game.inventory_index - 1)
-                            game.state = "player_turn"
+                            game.state = "player_turn" if not player_stood else "enemy_turn"
 
                 elif game.state == "player_turn":
                     if event.key == pygame.K_SPACE:
                         player_hit(game)
                     elif event.key in (pygame.K_LSHIFT, pygame.K_RSHIFT):
-                        # player stands — hand off to enemy, reset step timer
                         player_stand(game)
-                        enemy_timer = now + ENEMY_STEP_DELAY
+                        player_stood       = True
+                        enemy_timer        = now + ENEMY_STEP_DELAY
                         enemy_used_ability = False
+                    elif event.key == pygame.K_TAB:
+                        game.state = "inventory"
+
+                elif game.state == "enemy_turn":
+                    if event.key in (pygame.K_LSHIFT, pygame.K_RSHIFT) and can_unstand:
+                        game.state   = "player_turn"
+                        player_stood = False
                     elif event.key == pygame.K_TAB:
                         game.state = "inventory"
 
@@ -219,6 +215,7 @@ def run():
                     if event.key == pygame.K_RETURN:
                         distribute_abilities(game)
                         start_round(game)
+                        player_stood       = False
                         enemy_used_ability = False
 
                 elif game.state == "game_over":
@@ -226,11 +223,11 @@ def run():
                         game = GameState()
                         game.inventory_index = 0
                         deal_opening_hands(game)
+                        player_stood       = False
                         enemy_used_ability = False
 
-        # enemy takes one action per second while it's its turn
+        # enemy acts one step per second
         if game.state == "enemy_turn" and now >= enemy_timer:
-            # enemy gets one ability use before hitting/standing
             if not enemy_used_ability:
                 result = run_enemy_abilities(game)
                 if result:
@@ -238,22 +235,19 @@ def run():
                 enemy_used_ability = True
                 enemy_timer = now + ENEMY_STEP_DELAY
             else:
-                from game_logic import enemy_should_stand
-                if enemy_should_stand(game) or game.enemy_total > game.current_max:
-                    # enemy is done — resolve the round
+                if game.enemy_total > game.current_max or enemy_should_stand(game):
                     resolve_round(game)
                 else:
                     draw_card(game, "enemy")
                     enemy_timer = now + ENEMY_STEP_DELAY
 
-        # reveal = round is over so show enemy's hidden card
         reveal = game.state in ("round_over", "game_over")
 
         screen.fill(DARK_BG)
         draw_hand(screen, game.enemy_hand,  ENEMY_HAND_Y,  "ENEMY",  game.enemy_total,  is_enemy=True,  reveal=reveal)
         draw_hand(screen, game.player_hand, PLAYER_HAND_Y, "PLAYER", game.player_total, is_enemy=False, reveal=True)
         draw_hud(screen, game)
-        draw_state_label(screen, game)
+        draw_state_label(screen, game, player_stood, can_unstand)
         draw_round_over_banner(screen, game)
         if game.state == "inventory":
             draw_inventory(screen, game)
