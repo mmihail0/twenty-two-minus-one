@@ -32,7 +32,7 @@ HAND_START_X   = 36
 
 ENEMY_STEP_DELAY = 1000
 
-# placeholders — populated inside run() after display is set
+# placeholders - populated inside run() after display is set
 CARD_SPRITES       = {}
 CARD_HIDDEN_SPRITE = None
 
@@ -170,7 +170,7 @@ def run():
     global CARD_SPRITES, CARD_HIDDEN_SPRITE
 
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("21 — RE7 Blackjack")
+    pygame.display.set_caption("twenty two minus one")
 
     # load sprites now that the display is active — falls back to rects if missing
     try:
