@@ -21,7 +21,7 @@ SHIFT — stand / un-stand <br>
 TAB — inventory <br>
 ARROW KEYS — scroll in the inventory <br>
 ENTER — start the next round / select a trump card in inventory <br>
-R — start another match after losing a certain amount in a row
+R — start another match after losing 3 rounds in a row
 
 # trump cards
 *de facto named "trump cards", called "abilities" in the code* <br>
