@@ -24,8 +24,8 @@ ENTER — start the next round / select a trump card in inventory <br>
 R — start another match after losing a certain amount in a row
 
 # trump cards
-*de facto called "trump cards", called "abilities" in the code* <br>
-*the enemy can also use trump cards*
+*de facto named "trump cards", called "abilities" in the code* <br>
+*the enemy can also use trump cards* <br>
 ``max24`` — sets blackjack value to 24 <br>
 ``max17`` — sets blackjack value to 17 <br>
 ``max27`` — sets blackjack value to 27 <br>
