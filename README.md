@@ -2,10 +2,13 @@
 
 asdabefabgeonafoubergjnergn 👍👍👍👀👀👍
 
-if you want to run it then load all the files into some ide and run pygamevl.py
+if you want to run it then load the blackjack folder into some ide and run pygamevl.py <br>
+<br>
+if the sprites dont work then the game will resort to preset designs created in pygame itself
 
 # rules
 1. classic blackjack rules; go up to 21 or go bust by going over 21 <br>
+1.1 there are no suits or types of cards, they are all just numbered 1-11 <br>
 2. trump cards impact the game and the players <br>
 2.1 some trump cards change value needed to win from 21 to 17, 24 or 27; you can override this change by placing another trump card of the same kind <br>
 3. the player can hit however much they want during their turn <br>
