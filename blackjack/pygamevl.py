@@ -32,7 +32,7 @@ HAND_START_X   = 36
 
 ENEMY_STEP_DELAY = 1000
 
-# placeholders - populated inside run() after display is set
+# placeholders — populated inside run() after display is set
 CARD_SPRITES       = {}
 CARD_HIDDEN_SPRITE = None
 
