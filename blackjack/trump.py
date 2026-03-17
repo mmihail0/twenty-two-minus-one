@@ -6,7 +6,7 @@ ABILITY_POOL = [
     "max24", "max27", "max17",
     "reset_deck", "swap_last",
     "friendship", "force_draw",
-    "draw_specific", "perfect_draw"
+    "perfect_draw"
 ]
 
 
@@ -43,7 +43,7 @@ def _draw_card_for(game, target):
 def _find_and_remove(deck, rank):
     # searches the deck for a specific rank and pulls it out if found
     for card in list(deck.cards):
-        if card.value == rank:
+        if card.value.strip("'") == rank:
             deck.cards.remove(card)
             return card
     return None
@@ -53,7 +53,7 @@ def _make_card(rank):
     return pydealer.Card(rank, "Numbered")
 
 
-# ability implementations - each takes (game, user) and returns a result string
+# ability implementations — each takes (game, user) and returns a result string
 
 def apply_max24(game, user):
     game.current_max = 24
@@ -89,7 +89,7 @@ def apply_reset_deck(game, user):
     return f"{user.upper()} reset the deck — hand redrawn"
 
 def apply_swap_last(game, user):
-    # swaps the most recently drawn card between the players and recalculates totals
+    # swaps the most recently drawn card between both hands and recalculates totals
     if not game.player_hand or not game.enemy_hand:
         return "SWAP LAST failed — a hand is empty"
     p_card = game.player_hand[-1]
@@ -113,18 +113,18 @@ def apply_force_draw(game, user):
     card = _draw_card_for(game, opp)
     return f"{user.upper()} forced {opp.upper()} to draw {card.value}"
 
-def apply_draw_specific(game, user):
-    # pulls a 4, 5, or 6 from the deck — generates one if none are left
-    for rank in ["4", "5", "6"]:
-        card = _find_and_remove(game.deck, rank)
-        if card:
-            _user_hand(game, user).append(card)
-            _set_total(game, user, _user_total(game, user) + card_value(card))
-            return f"{user.upper()} drew specific card: {card.value}"
-    card = _make_card("4")
+def _apply_draw_specific(game, user, rank):
+    # checks both hands — if the card is already held by anyone, do nothing
+    all_held = [c.value.strip("'") for c in game.player_hand + game.enemy_hand]
+    if rank in all_held:
+        return f"{user.upper()} tried DRAW {rank} — already in play"
+    card = _find_and_remove(game.deck, rank)
+    if not card:
+        # not in deck either (shouldn't happen given above check, but just in case)
+        return f"{user.upper()} tried DRAW {rank} — card unavailable"
     _user_hand(game, user).append(card)
     _set_total(game, user, _user_total(game, user) + card_value(card))
-    return f"{user.upper()} drew specific card: 4 (generated)"
+    return f"{user.upper()} used DRAW {rank}"
 
 def apply_perfect_draw(game, user):
     # calculates exactly what card is needed to hit current_max and draws it
@@ -154,7 +154,6 @@ ABILITY_FUNCS = {
     "swap_last":     apply_swap_last,
     "friendship":    apply_friendship,
     "force_draw":    apply_force_draw,
-    "draw_specific": apply_draw_specific,
     "perfect_draw":  apply_perfect_draw,
 }
 
@@ -170,7 +169,7 @@ def use_ability(game, ability_name, user):
     return f"Unknown ability: {ability_name}"
 
 
-# enemy ai - decides whether and what to play before hitting or standing
+# enemy AI — decides whether and what to play before hitting or standing
 
 def enemy_should_use_ability(game):
     inv = game.enemy_inventory
@@ -187,14 +186,14 @@ def enemy_should_use_ability(game):
                 return ability
 
     if player >= max - 3 and enemy < player:
-        # player is about to win - try to punish them
+        # player is about to win - punish them
         for ability in ["force_draw", "max17", "swap_last"]:
             if ability in inv:
                 return ability
 
     if enemy < max * 0.6:
         # total is low, try to boost it precisely
-        for ability in ["perfect_draw", "draw_specific"]:
+        for ability in ["perfect_draw"]:
             if ability in inv:
                 return ability
 
