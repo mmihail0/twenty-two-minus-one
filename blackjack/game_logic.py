@@ -1,4 +1,3 @@
-print("LOADING game_logic.py")
 import random
 from cards import build_deck, card_value, replenish_deck
 
@@ -139,7 +138,7 @@ ABILITY_POOL = [
     "max24", "max27", "max17",
     "reset_deck", "swap_last",
     "friendship", "force_draw",
-    "draw_specific", "perfect_draw"
+    "perfect_draw"
 ]
 
 def distribute_abilities(game):
