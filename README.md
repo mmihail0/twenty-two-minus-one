@@ -36,5 +36,4 @@ R — start another match after losing 3 rounds in a row
 ``swap_last`` — swaps the last drawn cards of the player and enemy <br>
 ``friendship`` — gives 2 trump cards each to the player and enemy <br>
 ``force_draw`` — forces the enemy to draw a random card <br>
-``draw_specific`` — player draws a 4 or 6 (subject to change) <br>
 ``perfect_draw`` — draws the needed card to reach the blackjack value, caps out at drawing an 11 <br>
