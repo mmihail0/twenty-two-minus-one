@@ -2,7 +2,7 @@
 
 asdabefabgeonafoubergjnergn 👍👍👍👀👀👍
 
-if you want to run it then load the blackjack folder into some ide and run pygamevl.py <br>
+if you want to run it then load the blackjack folder into some ide and run main.py <br>
 <br>
 if the sprites dont work then the game will resort to preset designs created in pygame itself
 
