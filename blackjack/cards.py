@@ -4,7 +4,7 @@ RANKS = [str(i) for i in range(1, 12)]
 SUIT  = "Numbered"
 
 def build_deck():
-    # cards go from 1 to 11, no suits, only numbers
+    # cards go from 1 to 11
     deck = pydealer.Deck(build=False)
     for rank in RANKS:
         deck.add(pydealer.Stack(cards=[pydealer.Card(rank, SUIT)]))
