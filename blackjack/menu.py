@@ -1,4 +1,5 @@
 import pygame
+from pathlib import Path
 import sys
 
 WIDTH,  HEIGHT = 960, 540
@@ -31,11 +32,14 @@ RULES_TEXT = [
     "Force Draw        —  enemy must immediately draw a card.",
     "Perfect Draw      —  draw the exact card needed to hit the max.",
     "",
-    "Lose 3 rounds in a row and the game is over.",
-    "",
-    "[ESC]  Back to menu",
+    "Lose 3 rounds in a row and the game is over."
+    ""
 ]
 
+if getattr(sys, "frozen", False):
+    ASSET_DIR = Path(sys._MEIPASS) / "assets"
+else:
+    ASSET_DIR = Path(__file__).resolve().parent / "assets"
 
 def run_menu():
     pygame.init()
@@ -43,8 +47,8 @@ def run_menu():
     pygame.display.set_caption("twenty two minus one")
     clock  = pygame.time.Clock()
 
-    font_title  = pygame.font.Font("assets/fonts/MedievalSharp-Regular.ttf", 42)
-    font_btn    = pygame.font.Font("assets/fonts/PressStart2P-Regular.ttf", 14)
+    font_title = pygame.font.Font(str(ASSET_DIR / "fonts" / "MedievalSharp-Regular.ttf"), 42)
+    font_btn   = pygame.font.Font(str(ASSET_DIR / "fonts" / "PressStart2P-Regular.ttf"), 14)
     font_rules  = pygame.font.SysFont("couriernew", 22)
     font_head   = pygame.font.SysFont("couriernew", 26, bold=True)
 
@@ -99,7 +103,7 @@ def run_menu():
 
 
 def _draw_button(surface, rect, label, font, hovered, btn_default, btn_hover):
-    """Draw a button sprite (or fallback rect) with centred label."""
+    #draw a button sprite (or fallback rect) with centred label
     sprite = (btn_hover if hovered else btn_default)
     if sprite:
         scaled = pygame.transform.scale(sprite, (rect.width, rect.height))
