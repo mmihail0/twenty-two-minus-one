@@ -4,6 +4,7 @@ from game_logic import (
     GameState, deal_opening_hands, player_hit, player_stand,
     draw_card, resolve_round, distribute_trumps, enemy_should_stand
 )
+from menu import ASSET_DIR
 from trump import run_enemy_trumps, use_trump
 
 # screen and timing
@@ -182,12 +183,12 @@ def draw_book_hud(surface, game, reveal=False):
     ty, by, lh = 194, 294, 22
 
     visible_sum = sum(int(c.value) for c in game.enemy_hand[1:]) if len(game.enemy_hand) > 1 else 0
-    enemy_str = f"ENEMY: {game.enemy_total}" if reveal else f"ENEMY: ?+{visible_sum}"
+    enemy_str = f"ENEMY: {game.enemy_total}" if reveal else f"ENEMY: ? + {visible_sum}"
 
     for text, col, x, y in [
         (enemy_str,                      INK_RED,   lx, ty),
         (f"PLAYER: {game.player_total}", INK_GREEN, lx, by),
-        (f"MAX: {game.current_max}",     INK,       rx, ty),
+        (f"GO TO: {game.current_max}",     INK,       rx, ty),
         (f"ROUND: {game.round_number}",  INK,       rx, ty + lh),
         (f"WINS: {game.consecutive_wins}", INK,     rx, ty + lh*2),
     ]:
@@ -292,16 +293,18 @@ def run():
     pygame.display.set_caption("twenty two minus one")
 
     try:
-        BG_SPRITE = pygame.image.load("assets/maps/map1_casino.png").convert()
+        BG_SPRITE = pygame.image.load(str(ASSET_DIR / "maps" / "map1_casino.png")).convert()
+
         print("Background loaded OK")
     except FileNotFoundError:
         print("Background not found, using fill colour")
 
     try:
         for i in range(1, 12):
-            raw = pygame.image.load(f"assets/cards/card_{i:02d}.png").convert_alpha()
+            raw = pygame.image.load(str(ASSET_DIR / "cards" / f"card_{i:02d}.png")).convert_alpha()
+
             CARD_SPRITES[i] = pygame.transform.scale(raw, (CARD_W, CARD_H))
-        raw = pygame.image.load("assets/cards/card_hidden.png").convert_alpha()
+        raw = pygame.image.load(str(ASSET_DIR / "cards" / "card_hidden.png")).convert_alpha()
         CARD_HIDDEN_SPRITE = pygame.transform.scale(raw, (CARD_W, CARD_H))
         print("Card sprites loaded OK")
     except FileNotFoundError as e:
@@ -309,7 +312,8 @@ def run():
 
     for name, filename in TRUMP_SPRITE_NAMES.items():
         try:
-            raw = pygame.image.load(f"assets/trumpcards/{filename}.png").convert_alpha()
+            raw = pygame.image.load(str(ASSET_DIR / "trumpcards" / f"{filename}.png")).convert_alpha()
+
             TRUMP_SPRITES[name] = pygame.transform.scale(raw, (TRUMP_W, TRUMP_H))
         except FileNotFoundError:
             pass
