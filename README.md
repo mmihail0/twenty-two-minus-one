@@ -1,6 +1,4 @@
-# game of the year 2026
-
-asdabefabgeonafoubergjnergn 👍👍👍👀👀👍
+# school project from march 2026
 
 built in python 1.12.10 with pygame, a .exe is available as of prototype 5 <br>
 <br>
